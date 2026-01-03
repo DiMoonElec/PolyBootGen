@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "PolyBootGen": {
+      "commandName": "Project",
+      "commandLineArgs": "build -bin GTH02.00.21.bin -config config.xml -out GTH02.00.21.xbin"
+    }
+  }
+}
