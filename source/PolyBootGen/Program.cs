@@ -64,13 +64,14 @@
         throw new ArgumentException("Usage: build -bin <file> -config <file> [-out file]");
 
       byte[] firmware = File.ReadAllBytes(binPath);
-      var config = FirmwareConfig.LoadFromFile(configPath);
+      var config = new FirmwareConfig(configPath);
 
       var builder = new FirmwareBuilder();
       var prepared = builder.BuildFirmware(firmware, config);
       var chunks = FirmwareChunker.ChunkFirmware(prepared, config);
+      var header = FirmwareChunker.ChunkHeader(config);
 
-      FirmwareDumpWriter.WriteToFile(chunks, outputPath);
+      FirmwareDumpWriter.WriteToFile(chunks, header, outputPath);
 
       Console.WriteLine("Firmware dump generated");
     }
@@ -80,6 +81,7 @@
     private static void RunGenerateConfig(string[] args)
     {
       string? output = null;
+      string? deviceID = null;
       uint flashAddr = 0;
       uint flashSize = 0;
 
@@ -96,15 +98,18 @@
           case "-size":
             flashSize = uint.Parse(args[++i]);
             break;
+          case "-devid":
+            deviceID = args[++i];
+            break;
         }
       }
 
-      if (output == null || flashSize == 0)
-        throw new ArgumentException("Usage: genconfig -out <file> -flash <addr> -size <bytes>");
+      if (output == null || deviceID == null || flashSize == 0)
+        throw new ArgumentException("Usage: genconfig -out <file> -flash <addr> -size <bytes> -devid \"DEVICE_NAME\"");
 
-      FirmwareConfigGenerator.Generate(output, flashAddr, flashSize);
+      FirmwareConfigGenerator.Generate(output, flashAddr, flashSize, deviceID);
 
-      FirmwareConfig config = FirmwareConfig.LoadFromFile(output);
+      var config = new FirmwareConfig(output);
       FirmwareKeyHeaderGenerator.Generate(output, config);
 
       Console.WriteLine($"Config generated: {output}");
@@ -122,10 +127,10 @@
       Console.WriteLine("PolyBootGen usage:");
       Console.WriteLine();
       Console.WriteLine("  build     -bin <file> -config <file> [-out file]");
-      Console.WriteLine("  genconfig -out <file> -flash <addr> -size <bytes>");
+      Console.WriteLine("  genconfig -out <file> -flash <addr> -size <bytes> -devid \"DEVICE_NAME\"");
       Console.WriteLine();
       Console.WriteLine("Examples:");
-      Console.WriteLine("  PolyBootGen genconfig -out config.xml -flash 0x08000000 -size 262144");
+      Console.WriteLine("  PolyBootGen genconfig -out config.xml -flash 0x08000000 -size 262144 -devid \"MY DEVICE\"");
       Console.WriteLine("  PolyBootGen build -bin app.bin -config config.xml -out firmware.txt");
     }
   }

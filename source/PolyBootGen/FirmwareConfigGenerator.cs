@@ -8,7 +8,8 @@ namespace PolyBootGen
     public static void Generate(
       string outputPath,
       uint flashStart,
-      uint flashSize)
+      uint flashSize,
+      string deviceID)
     {
       byte[] encryptionKey = new byte[32]; // 256-bit
       byte[] integrityKey = new byte[32];  // 256-bit
@@ -25,7 +26,8 @@ namespace PolyBootGen
           new XElement("EncryptionKey", ToHex(encryptionKey)),
           new XElement("IntegrityKey", ToHex(integrityKey)),
           new XElement("FlashStartAddress", $"0x{flashStart:X8}"),
-          new XElement("FlashSize", flashSize.ToString())
+          new XElement("FlashSize", flashSize.ToString()),
+          new XElement("DeviceID", deviceID)
         )
       );
 

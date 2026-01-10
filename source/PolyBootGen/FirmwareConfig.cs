@@ -9,8 +9,9 @@ namespace PolyBootGen
     public byte[] IntegrityKey { get; private set; }
     public uint FlashStartAddress { get; private set; }
     public uint FlashSize { get; private set; }
+    public string DeviceID { get; private set; }
 
-    public static FirmwareConfig LoadFromFile(string path)
+    public FirmwareConfig(string path)
     {
       if (!File.Exists(path))
         throw new FileNotFoundException("Config file not found", path);
@@ -36,18 +37,16 @@ namespace PolyBootGen
                              ?? throw new InvalidDataException("<FlashStartAddress> not found");
       string flashSizeStr = root.Element("FlashSize")?.Value
                             ?? throw new InvalidDataException("<FlashSize> not found");
+      DeviceID = root.Element("DeviceID")?.Value
+                            ?? throw new InvalidDataException("<FlashSize> not found");
 
-      var config = new FirmwareConfig
-      {
-        EncryptionKey = HexStringToByteArray(encryptionKeyHex),
-        IntegrityKey = HexStringToByteArray(integrityKeyHex),
-        FlashStartAddress = flashStartHex.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+      EncryptionKey = HexStringToByteArray(encryptionKeyHex);
+      IntegrityKey = HexStringToByteArray(integrityKeyHex);
+      FlashStartAddress = flashStartHex.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
                               ? Convert.ToUInt32(flashStartHex, 16)
-                              : uint.Parse(flashStartHex),
-        FlashSize = uint.Parse(flashSizeStr)
-      };
+                              : uint.Parse(flashStartHex);
+      FlashSize = uint.Parse(flashSizeStr);
 
-      return config;
     }
   }
 }
