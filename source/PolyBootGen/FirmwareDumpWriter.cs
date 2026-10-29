@@ -37,17 +37,38 @@ namespace PolyBootGen
         linesForHash.Add(base64);
       }
 
+      WriteLines(linesForHash, filePath);
+    }
+
+    internal static void WriteLines(IEnumerable<string> lines, string filePath, bool normalize = false)
+    {
+      var linesForHash = (normalize
+        ? lines.Select(line => line.Trim()).Where(line => line.Length > 0)
+        : lines).ToList();
+
       // ---------- SHA256 over text lines ----------
       byte[] sha256Bytes = ComputeSha256OverLines(linesForHash);
       string sha256Hex = ConvertToHex(sha256Bytes);
 
       // ---------- Write file ----------
-      using var writer = new StreamWriter(filePath, false, Encoding.ASCII);
-
-      foreach (string line in linesForHash)
-        writer.WriteLine(line);
-
-      writer.WriteLine(sha256Hex);
+      string target = Path.GetFullPath(filePath);
+      string directory = Path.GetDirectoryName(target)!;
+      Directory.CreateDirectory(directory);
+      string temporary = Path.Combine(directory, $".{Path.GetFileName(target)}.{Guid.NewGuid():N}.tmp");
+      try
+      {
+        using (var writer = new StreamWriter(temporary, false, Encoding.ASCII))
+        {
+          foreach (string line in linesForHash)
+            writer.WriteLine(line);
+          writer.WriteLine(sha256Hex);
+        }
+        File.Move(temporary, target, overwrite: true);
+      }
+      finally
+      {
+        if (File.Exists(temporary)) File.Delete(temporary);
+      }
     }
 
     // ======================================================

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Example keys only. Replace with the keys configured in the bootloader. -->
+<UpdatePackage SchemaVersion="1" Format="2" Type="SINGLE">
+  <Output>dist/single.xbin</Output>
+  <MinUpdaterVersion>1.0.0</MinUpdaterVersion>
+  <Comment>Single device firmware</Comment>
+  <Firmware Target="ROOT">
+    <DeviceId>at32f413cbt7-uart-bootloader</DeviceId>
+    <BootloaderVersion>2</BootloaderVersion>
+    <Binary>build/application.bin</Binary>
+    <!-- Optional: informational version is written to #REM only. -->
+    <VersionHeader>FWVersion.h</VersionHeader>
+    <Memory>
+      <AppBegin>0x08003000</AppBegin>
+      <AppLength>116K</AppLength>
+    </Memory>
+    <Keys>
+      <EncryptionKey>0000000000000000000000000000000000000000000000000000000000000000</EncryptionKey>
+      <IntegrityKey>1111111111111111111111111111111111111111111111111111111111111111</IntegrityKey>
+    </Keys>
+  </Firmware>
+</UpdatePackage>

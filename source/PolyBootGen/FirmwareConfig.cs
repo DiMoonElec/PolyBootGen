@@ -11,6 +11,17 @@ namespace PolyBootGen
     public uint FlashSize { get; private set; }
     public string DeviceID { get; private set; }
 
+    public FirmwareConfig(byte[] encryptionKey, byte[] integrityKey,
+      uint flashStartAddress, uint flashSize, string deviceID)
+    {
+      EncryptionKey = encryptionKey;
+      IntegrityKey = integrityKey;
+      FlashStartAddress = flashStartAddress;
+      FlashSize = flashSize;
+      DeviceID = deviceID;
+      Validate();
+    }
+
     public FirmwareConfig(string path)
     {
       if (!File.Exists(path))
@@ -38,7 +49,7 @@ namespace PolyBootGen
       string flashSizeStr = root.Element("FlashSize")?.Value
                             ?? throw new InvalidDataException("<FlashSize> not found");
       DeviceID = root.Element("DeviceID")?.Value
-                            ?? throw new InvalidDataException("<FlashSize> not found");
+                            ?? throw new InvalidDataException("<DeviceID> not found");
 
       EncryptionKey = HexStringToByteArray(encryptionKeyHex);
       IntegrityKey = HexStringToByteArray(integrityKeyHex);
@@ -46,7 +57,17 @@ namespace PolyBootGen
                               ? Convert.ToUInt32(flashStartHex, 16)
                               : uint.Parse(flashStartHex);
       FlashSize = uint.Parse(flashSizeStr);
+      Validate();
+    }
 
+    private void Validate()
+    {
+      if (EncryptionKey.Length != 32 || IntegrityKey.Length != 32)
+        throw new InvalidDataException("EncryptionKey and IntegrityKey must each contain 32 bytes.");
+      if (FlashSize <= 16 || FlashSize > int.MaxValue)
+        throw new InvalidDataException("Application length must be greater than 16 and at most Int32.MaxValue bytes.");
+      if ((ulong)FlashStartAddress + FlashSize > (ulong)uint.MaxValue + 1)
+        throw new InvalidDataException("Application region exceeds the 32-bit address space.");
     }
   }
 }

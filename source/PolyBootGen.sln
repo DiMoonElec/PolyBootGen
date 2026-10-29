@@ -5,6 +5,8 @@ VisualStudioVersion = 17.13.35919.96 d17.13
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PolyBootGen", "PolyBootGen\PolyBootGen.csproj", "{5D7FB191-6CD3-470A-81CB-95C43B2F5F0C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PolyBootGen.Tests", "..\tests\PolyBootGen.Tests\PolyBootGen.Tests.csproj", "{67021A99-388D-41D2-AC4E-5A8FEE4EC42C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{5D7FB191-6CD3-470A-81CB-95C43B2F5F0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5D7FB191-6CD3-470A-81CB-95C43B2F5F0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5D7FB191-6CD3-470A-81CB-95C43B2F5F0C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{67021A99-388D-41D2-AC4E-5A8FEE4EC42C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{67021A99-388D-41D2-AC4E-5A8FEE4EC42C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{67021A99-388D-41D2-AC4E-5A8FEE4EC42C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{67021A99-388D-41D2-AC4E-5A8FEE4EC42C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

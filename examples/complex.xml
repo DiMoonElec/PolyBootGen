@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Example keys and memory regions. Configure each device independently. -->
+<UpdatePackage SchemaVersion="1" Format="2" Type="COMPLEX">
+  <Output>dist/complex.xbin</Output>
+  <MinUpdaterVersion>1.0.0</MinUpdaterVersion>
+  <Comment>Master and slave firmware</Comment>
+  <Firmware Target="ROOT">
+    <DeviceId>MASTER</DeviceId>
+    <BootloaderVersion>2</BootloaderVersion>
+    <ProxyVersion>1</ProxyVersion>
+    <Binary>build/master.bin</Binary>
+    <!-- Optional: informational version is written to #REM only. -->
+    <VersionHeader>FWVersion.h</VersionHeader>
+    <Memory>
+      <AppBegin>0x08003000</AppBegin>
+      <AppLength>116K</AppLength>
+    </Memory>
+    <Keys>
+      <EncryptionKey>0000000000000000000000000000000000000000000000000000000000000000</EncryptionKey>
+      <IntegrityKey>1111111111111111111111111111111111111111111111111111111111111111</IntegrityKey>
+    </Keys>
+  </Firmware>
+  <Firmware Target="SLAVE">
+    <DeviceId>SLAVE_TYPE_A</DeviceId>
+    <BootloaderVersion>2</BootloaderVersion>
+    <Binary>build/slave.bin</Binary>
+    <!-- No VersionHeader for this slave: HASH is still generated. -->
+    <Memory>
+      <AppBegin>0x08003000</AppBegin>
+      <AppLength>116K</AppLength>
+    </Memory>
+    <Keys>
+      <EncryptionKey>2222222222222222222222222222222222222222222222222222222222222222</EncryptionKey>
+      <IntegrityKey>3333333333333333333333333333333333333333333333333333333333333333</IntegrityKey>
+    </Keys>
+  </Firmware>
+</UpdatePackage>

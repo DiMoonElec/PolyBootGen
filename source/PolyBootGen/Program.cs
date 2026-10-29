@@ -2,12 +2,12 @@
 {
   public class PolyBootGen
   {
-    public static void Main(string[] args)
+    public static int Main(string[] args)
     {
       if (args.Length == 0)
       {
         PrintUsage();
-        return;
+        return 1;
       }
 
       try
@@ -24,19 +24,52 @@
             RunGenerateConfig(args);
             break;
 
+          case "build-v2":
+            RunBuildV2Mode(args);
+            break;
+
           default:
             Console.WriteLine($"Unknown mode: {mode}");
             PrintUsage();
-            break;
+            return 1;
         }
+        return 0;
       }
       catch (Exception ex)
       {
-        Console.WriteLine($"Error: {ex.Message}");
+        Console.Error.WriteLine($"Error: {ex.Message}");
+        return 1;
       }
     }
 
     // ---------------- build ----------------
+
+    private static void RunBuildV2Mode(string[] args)
+    {
+      string? config = null;
+      string? output = null;
+      for (int i = 1; i < args.Length; i++)
+      {
+        string option = args[i];
+        if (option != "-config" && option != "-out")
+          throw new ArgumentException($"Unknown build-v2 option: {option}");
+        if (i + 1 >= args.Length || string.IsNullOrWhiteSpace(args[i + 1]))
+          throw new ArgumentException($"Missing value for {option}.");
+        string value = args[++i];
+        if (option == "-config")
+        {
+          if (config != null) throw new ArgumentException("Duplicate -config option.");
+          config = value;
+        }
+        else
+        {
+          if (output != null) throw new ArgumentException("Duplicate -out option.");
+          output = value;
+        }
+      }
+      if (config == null) throw new ArgumentException("Usage: build-v2 -config <file> [-out file]");
+      UpdatePackageBuilder.Build(UpdatePackageConfig.Load(config), output);
+    }
 
     private static void RunBuildMode(string[] args)
     {
@@ -127,6 +160,7 @@
       Console.WriteLine("PolyBootGen usage:");
       Console.WriteLine();
       Console.WriteLine("  build     -bin <file> -config <file> [-out file]");
+      Console.WriteLine("  build-v2  -config <package.xml> [-out file]");
       Console.WriteLine("  genconfig -out <file> -flash <addr> -size <bytes> -devid \"DEVICE_NAME\"");
       Console.WriteLine();
       Console.WriteLine("Examples:");

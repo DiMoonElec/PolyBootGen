@@ -1,0 +1,8 @@
+#ifndef FWVERSION_H
+#define FWVERSION_H
+
+#define FW_VERSION_MAJOR 0
+#define FW_VERSION_MINOR 16
+#define FW_VERSION_PATCH 0
+
+#endif
