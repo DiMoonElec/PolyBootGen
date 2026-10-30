@@ -8,13 +8,13 @@ namespace PolyBootGen
     private const int CHUNK_SIZE = FirmwareChunk.ChunkSize;
     private static readonly RandomNumberGenerator Rng = RandomNumberGenerator.Create();
 
-    public static List<FirmwareChunk> ChunkFirmware(byte[] firmware, FirmwareConfig config)
+    public static List<FirmwareChunk> ChunkFirmware(byte[] firmware, FirmwareConfig config,
+      bool skipErasedChunks = false)
     {
       if (firmware == null) throw new ArgumentNullException(nameof(firmware));
       if (config == null) throw new ArgumentNullException(nameof(config));
 
       List<FirmwareChunk> chunks = new();
-      uint currentAddress = config.FlashStartAddress;
 
       int totalChunks = (int)Math.Ceiling(firmware.Length / (double)CHUNK_SIZE);
 
@@ -22,6 +22,10 @@ namespace PolyBootGen
       {
         int offset = i * CHUNK_SIZE;
         int chunkLen = Math.Min(CHUNK_SIZE, firmware.Length - offset);
+
+        // Test the actual image bytes before encryption and zero padding.
+        if (skipErasedChunks && firmware.AsSpan(offset, chunkLen).IndexOfAnyExcept((byte)0xFF) < 0)
+          continue;
 
         byte[] plaintext = new byte[chunkLen];
         Array.Copy(firmware, offset, plaintext, 0, chunkLen);
@@ -31,14 +35,13 @@ namespace PolyBootGen
         Rng.GetBytes(nonce);
 
         var chunk = new FirmwareChunk(
-            currentAddress,
+            config.FlashStartAddress + (uint)offset,
             plaintext,
             config.EncryptionKey,
             nonce
         );
 
         chunks.Add(chunk);
-        currentAddress += (uint)chunkLen;
       }
 
       return chunks;

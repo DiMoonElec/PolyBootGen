@@ -29,7 +29,7 @@ namespace PolyBootGen
         if (firmware.ProxyVersion is int proxy) metadata += $";PROXY={proxy}";
         lines.Add(metadata);
         lines.Add(Convert.ToBase64String(FirmwareChunker.ChunkHeader(config).ToBytes()));
-        lines.AddRange(FirmwareChunker.ChunkFirmware(image, config)
+        lines.AddRange(FirmwareChunker.ChunkFirmware(image, config, skipErasedChunks: true)
           .Select(chunk => Convert.ToBase64String(chunk.ToBytes())));
 
         ulong end = (ulong)config.FlashStartAddress + config.FlashSize;

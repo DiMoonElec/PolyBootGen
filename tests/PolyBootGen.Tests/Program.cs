@@ -86,6 +86,26 @@ void CheckHash(string[] lines)
   Assert(expected.Equals(lines[^1], StringComparison.OrdinalIgnoreCase), "Container SHA256 mismatch.");
 }
 
+byte[] ReadSparseImage(string[] lines, ref int pos, FirmwareConfig config)
+{
+  byte[] image = new byte[config.FlashSize];
+  Array.Fill(image, (byte)0xFF);
+  int previousEnd = 0;
+  while (pos < lines.Length - 1 && !lines[pos].StartsWith('#'))
+  {
+    byte[] plain = Decrypt(lines[pos++], config.EncryptionKey, out uint address, out int count);
+    Assert(address >= config.FlashStartAddress, "Chunk address precedes application.");
+    int offset = checked((int)(address - config.FlashStartAddress));
+    Assert(offset >= previousEnd && offset < image.Length && offset % 128 == 0, "Chunk order or address.");
+    Assert(count == Math.Min(128, image.Length - offset), "Final chunk length.");
+    Assert(plain.Skip(count).All(b => b == 0), "Chunk encryption padding.");
+    Assert(plain.Take(count).Any(b => b != 0xFF), "Erased chunk was emitted in V2.");
+    plain.AsSpan(0, count).CopyTo(image.AsSpan(offset, count));
+    previousEnd = offset + count;
+  }
+  return image;
+}
+
 (string[] Lines, string[] Hashes, byte[][] Images) Snapshot(UpdatePackageConfig package, string name)
 {
   string path = Path.Combine(work, name + ".xbin");
@@ -99,13 +119,7 @@ void CheckHash(string[] lines)
   {
     hashes.Add(lines[pos++].Split(';').Single(field => field.StartsWith("HASH="))[5..]);
     pos++; // Encrypted header.
-    var image = new List<byte>();
-    while (pos < lines.Length - 1 && !lines[pos].StartsWith('#'))
-    {
-      byte[] plain = Decrypt(lines[pos++], firmware.Config.EncryptionKey, out _, out int count);
-      image.AddRange(plain[..count]);
-    }
-    images.Add(image.ToArray());
+    images.Add(ReadSparseImage(lines, ref pos, firmware.Config));
   }
   return (lines, hashes.ToArray(), images.ToArray());
 }
@@ -200,10 +214,38 @@ try
     CheckMac(image.ToArray(), integrityKey);
   });
 
-  foreach (bool complex in new[] { false, true })
-    Test(complex ? "V2 COMPLEX, independent slave keys and hashes" : "V2 SINGLE, relative paths and full encrypted image", () =>
+  Test("Erased chunk filtering: opt-in, leading/interior/trailing gaps and partial chunks", () =>
+  {
+    byte[] input = Enumerable.Repeat((byte)0xFF, 5 * 128 + 3).ToArray();
+    input[128 + 17] = 0; // Mixed block must be kept, including its FF bytes.
+    Array.Fill(input, (byte)0, 3 * 128, 128); // Zero-filled blocks are data.
+    var config = new FirmwareConfig(key, integrityKey, 0x08003000, (uint)input.Length, "DEVICE");
+    Assert(FirmwareChunker.ChunkFirmware(input, config).Count == 6, "Default/V1 dropped erased chunks.");
+    var chunks = FirmwareChunker.ChunkFirmware(input, config, skipErasedChunks: true);
+    Assert(chunks.Count == 2, "Wrong number of non-erased chunks.");
+    for (int i = 0; i < chunks.Count; i++)
     {
-      var package = Load(Package(complex));
+      byte[] plain = Decrypt(Convert.ToBase64String(chunks[i].ToBytes()), key, out uint address, out int count);
+      int offset = (i == 0 ? 1 : 3) * 128;
+      Assert(address == config.FlashStartAddress + offset && count == 128, "Address shifted across an erased gap.");
+      Assert(plain.SequenceEqual(input.AsSpan(offset, count).ToArray()), "Mixed or zero-filled data changed.");
+    }
+    input[^1] = 0x42;
+    var last = FirmwareChunker.ChunkFirmware(input, config, skipErasedChunks: true)[^1];
+    byte[] lastPlain = Decrypt(Convert.ToBase64String(last.ToBytes()), key, out uint lastAddress, out int lastCount);
+    Assert(lastAddress == config.FlashStartAddress + 5 * 128 && lastCount == 3, "Partial data chunk lost or moved.");
+    Assert(lastPlain.Take(3).SequenceEqual(input[^3..]) && lastPlain.Skip(3).All(b => b == 0), "Partial data or padding changed.");
+    Array.Fill(input, (byte)0xFF);
+    Assert(FirmwareChunker.ChunkFirmware(input, config, skipErasedChunks: true).Count == 0, "All-erased image was emitted.");
+  });
+
+  foreach (bool complex in new[] { false, true })
+    Test(complex ? "V2 COMPLEX, independent slave keys and sparse images" : "V2 SINGLE, relative paths and sparse image", () =>
+    {
+      var doc = Package(complex);
+      foreach (var section in doc.Root!.Elements("Firmware"))
+        section.Element("Memory")!.Element("AppLength")!.Value = (string?)section.Attribute("Target") == "ROOT" ? "1025" : "1024";
+      var package = Load(doc);
       string output = Path.Combine(fixturePath, complex ? "complex.xbin" : "single.xbin");
       UpdatePackageBuilder.Build(package, output);
       var lines = File.ReadAllLines(output);
@@ -221,17 +263,10 @@ try
         byte[] plainHeader = Decrypt(lines[pos++], firmware.Config.EncryptionKey, out uint size, out _);
         Assert(size == firmware.Config.FlashSize, "Header image length.");
         Assert(Encoding.UTF8.GetString(plainHeader).TrimEnd('\0') == firmware.Config.DeviceID, "Header DeviceID.");
-        var image = new List<byte>();
-        while (pos < lines.Length - 1 && !lines[pos].StartsWith('#'))
-        {
-          byte[] plain = Decrypt(lines[pos++], firmware.Config.EncryptionKey, out uint address, out int count);
-          Assert(address == firmware.Config.FlashStartAddress + image.Count, "Chunk address.");
-          Assert(count == Math.Min(128, (int)size - image.Count), "Final chunk length.");
-          Assert(plain.Skip(count).All(b => b == 0), "Chunk encryption padding.");
-          image.AddRange(plain[..count]);
-        }
-        byte[] actual = image.ToArray();
-        Assert(actual.Length == size, "Full AppLength was not emitted.");
+        int dataStart = pos;
+        byte[] actual = ReadSparseImage(lines, ref pos, firmware.Config);
+        Assert(pos - dataStart < (size + 127) / 128, "V2 package did not omit erased filler.");
+        Assert(actual.SequenceEqual(new FirmwareBuilder().BuildFirmwareV2(input, firmware.Config).Image), "Sparse image differs from full image.");
         Assert(actual.AsSpan(0, input.Length).SequenceEqual(input), "Decoded binary differs.");
         Assert(actual.AsSpan(input.Length, actual.Length - 32 - input.Length).ToArray().All(b => b == 255), "Decoded FF filler differs.");
         Assert(actual.AsSpan(actual.Length - 32, 16).SequenceEqual(expectedHash), "Metadata/tail hash mismatch.");
@@ -240,6 +275,27 @@ try
       Assert(pos == lines.Length - 1, "Unexpected section content.");
       Assert(Generator.Main(["build-v2", "-config", configPath]) == 0 && File.Exists(Path.Combine(work, "dist", "update.xbin")), "XML-relative output.");
     });
+
+  Test("V2 omits erased blocks inside the binary and preserves its hash and full-image MAC", () =>
+  {
+    byte[] input = Enumerable.Repeat((byte)0xFF, 512).ToArray();
+    input[0] = 0x42;
+    input[384] = 0;
+    string path = Path.Combine(work, "sparse.bin");
+    File.WriteAllBytes(path, input);
+    var doc = Package();
+    var section = doc.Root!.Element("Firmware")!;
+    section.Element("Binary")!.Value = "sparse.bin";
+    section.Element("Memory")!.Element("AppLength")!.Value = "1025";
+    var package = Load(doc);
+    var snapshot = Snapshot(package, "internal-gaps");
+    // Header, two binary blocks, and two blocks covering the unaligned hash/MAC tail.
+    Assert(snapshot.Lines.Count(line => !line.StartsWith('#')) - 1 == 5, "Internal FF blocks were not omitted.");
+    Assert(snapshot.Hashes.Single() == Convert.ToHexString(SHA256.HashData(input)[..16]), "Sparse binary hash changed.");
+    var config = package.Firmwares.Single().Config;
+    Assert(snapshot.Images.Single().SequenceEqual(new FirmwareBuilder().BuildFirmwareV2(input, config).Image), "Internal gaps changed the image.");
+    CheckMac(snapshot.Images.Single(), config.IntegrityKey);
+  });
 
   Test("VersionHeader is optional independently for each firmware", () =>
   {
